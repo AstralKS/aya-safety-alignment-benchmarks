@@ -15,7 +15,7 @@ tags:
   - lexsi-hackathon
 ---
 
-# Aya Hallucination, Factuality, and Selective Abstention: A Rigorous Multi-Benchmark Evaluation
+# Aya Hallucination, Factuality, and Selective Abstention: A Rigorous Multi-Benchmark Evaluation & Calibrated Intervention
 
 **Lexsi AI Safety & Alignment Hackathon (Track 2: AI Red Teaming, Safety & Alignment)**  
 **Models Evaluated:** `CohereLabs/tiny-aya-global` (3.35B) & `CohereLabs/aya-expanse-8b` (8B)  
@@ -29,27 +29,42 @@ tags:
 
 ## 1. Abstract (<500 words)
 
-Multilingual open-weights foundation models frequently exhibit high surface fluency alongside severe ungrounded hallucination, particularly in knowledge-intensive regimes. In this project for the Lexsi AI Safety & Alignment Hackathon, we present a frozen, empirical evaluation of Cohere's dense open-weights multilingual models—`CohereLabs/tiny-aya-global` (3.35B) and `CohereLabs/aya-expanse-8b` (8B)—across four distinct safety, truthfulness, and factuality benchmarks comprising 6,347 evaluated test instances per model (12,694 model generations in total). 
+Multilingual open-weights foundation models frequently exhibit high surface fluency alongside severe ungrounded hallucination, particularly in knowledge-intensive regimes. In this project for the Lexsi AI Safety & Alignment Hackathon (Track 2: AI Red Teaming, Safety & Alignment), we present a frozen empirical evaluation of Cohere's dense open-weights multilingual models—`CohereLabs/tiny-aya-global` (3.35B) and `CohereLabs/aya-expanse-8b` (8B)—across four distinct safety and factuality benchmarks comprising 6,347 evaluated test instances per model (12,694 total model generations). Furthermore, we demonstrate a concrete **before-and-after safety alignment intervention (Gate 1)** using an integrated pipeline of **CuratorKIT**, **SafeTune**, and **AuditKIT**.
 
-The benchmark battery covers four key complementary axes:
+Our baseline battery assesses four complementary axes:
 1. **Short-Form Factuality:** SimpleQA Verified (1,000 cases) measuring precision and coverage under factual queries.
 2. **Hallucination vs. False Refusal:** HalluLens PreciseWikiQA (1,000 cases) measuring whether models hallucinate ungrounded claims when refusing to abstain.
 3. **Calibrated Selective Abstention:** AbstentionBench (978 balanced answerable/unanswerable cases) measuring appropriate abstention behavior and joint task success.
 4. **Metacognitive Self-Awareness:** SelfAware (3,369 cases) evaluating whether the model recognizes the boundaries of its own knowledge.
 
-All judgments were executed with deterministic greedy decoding using GLM-5.3-Flash as an independent factual judge (6,835 settled raw judgments, zero evaluation exceptions), coupled with exact SimCSE embeddings for semantic unanswerability matching. 
+To mitigate ungrounded generation, we implemented a **Gate 1 representation-based selective abstention probe** extracted from Tiny Aya internal activations (Layer 18), calibrated and routed via SafeTune, and evaluated under AuditKIT. On development cases, Gate 1 increased joint task success from **52.5% to 70.0%** (+17.50 percentage points) while retaining **100% of baseline correct answers (14/14)** and cutting ungrounded attempts on should-abstain questions by more than half (from 13/20 to 6/20).
 
-Our empirical results reveal:
-- **Low Factuality Baseline:** SimpleQA correct-answer yield is only 3.70% (Tiny Aya) and 5.70% (8B) despite answer coverage exceeding 95.2%, highlighting that models aggressively attempt queries where they lack factual grounding.
-- **Pervasive Ungrounded Claims:** On HalluLens PreciseWikiQA, when models do not abstain, the hallucination rate reaches 91.94% for Tiny Aya and 84.64% for 8B, while false refusals remain rare (3.20% and 4.30%).
-- **Scaling Benefits in Abstention:** On AbstentionBench, Aya Expanse 8B demonstrates significant gains in appropriate abstention over Tiny Aya (72.70% vs. 68.30% behavior accuracy; 60.22% vs. 51.23% joint task success).
-- **Metacognitive Recognition:** On SelfAware, scaling from 3.35B to 8B improves unknown-label F1 from 34.07% to 43.70%, with answerable reference accuracy improving from 32.04% to 39.01%.
-
-We analyze these results within the Lexsi alignment ecosystem (CuratorKIT data filtering, AuditKIT safety evaluation, and SafeTune steering). All datasets, model outputs, raw judge journals, and reproducible evaluation code are publicly available.
+All judgments were executed with deterministic greedy decoding using GLM-5.3-Flash as an independent factual judge (6,835 settled raw judgments, zero evaluation exceptions), coupled with exact SimCSE embeddings for semantic unanswerability matching. All datasets, model outputs, judge traces, and reproducible evaluation pipelines are hosted publicly.
 
 ---
 
-## 2. Benchmark Battery and Metric Design
+## 2. Before-and-After Intervention: Gate 1 Pilot Results
+
+Using the Hackathon toolkits (**CuratorKIT** for split hygiene and case extraction, **SafeTune** for representation-steered abstention routing, and **AuditKIT** for multi-arm evaluation), we evaluated a prompt-only Layer-18 probe intervention on Tiny Aya Global across balanced answerable/should-abstain cases:
+
+| Development Arm | Joint Task Success ↑ | Correct Retained / 14 ↑ | Attempts / 40 | Should-Abstain Attempts ↓ | False Refusals / 20 ↓ |
+|---|---:|---:|---:|---:|---:|
+| **Cached Baseline** | 21/40 (52.5%) | 14/14 (100%) | 28/40 | 13/20 | 5/20 |
+| **Gate 1 (Layer-18 Probe + SafeTune)** | **28/40 (70.0%)** | **14/14 (100%)** | 21/40 | **6/20** | 5/20 |
+| Question-only TF-IDF Control | 21/40 (52.5%) | 14/14 (100%) | 28/40 | 13/20 | 5/20 |
+| Seeded Random Control | 22/40 (55.0%) | 11/14 (78.6%) | 21/40 | 9/20 | 8/20 |
+| Always Abstain | 20/40 (50.0%) | 0/14 (0.0%) | 0/40 | 0/20 | 20/20 |
+
+### Key Improvements Under Gate 1 Intervention:
+- **Joint Task Success:** Improved from **52.5% → 70.0%** (+17.50 percentage points; 95% paired bootstrap interval: [+2.86, +32.61]).
+- **Behavior Accuracy:** Improved from **55.0% → 72.5%** (+17.5 percentage points).
+- **Unknown-label F1:** Increased from **43.75% → 71.79%** (+28.04 percentage points).
+- **Zero Loss on Known Facts:** Retained **100% of baseline correct answers** (14/14).
+- **Suppression of Ungrounded Guesses:** Erroneous attempts on should-abstain questions dropped from **13/20 down to 6/20**.
+
+---
+
+## 3. Four-Benchmark Baseline Battery
 
 | Benchmark | Target Safety Axis | Primary Metric | Tiny Aya Global | Aya Expanse 8B | N (Rows/model) |
 |---|---|---|---:|---:|---:|
@@ -82,7 +97,7 @@ We analyze these results within the Lexsi alignment ecosystem (CuratorKIT data f
 
 ---
 
-## 3. Key Findings and Alignment Insights
+## 4. Key Findings and Alignment Insights
 
 ### 1. The Factuality Coverage Trap
 Both models attempt >95% of factual prompts on SimpleQA, despite having less than a 6% actual correctness rate. In standard generation, Aya models are strongly biased to answer rather than abstain, leading to severe hallucination rates exceeding 84% on PreciseWikiQA.
@@ -94,18 +109,21 @@ Scaling from Tiny Aya (3.35B) to Aya Expanse (8B) yields consistent improvements
 - Hallucination when attempting to answer drops by **7.30%** (91.94% → 84.64%).
 However, even at 8B scale, spontaneous abstention remains inadequate without targeted intervention.
 
----
-
-## 4. Connection to Lexsi AI Safety Toolkits
-
-This empirical benchmark framework directly interfaces with the Lexsi Toolkit suite:
-- **CuratorKIT:** Data preparation and filtering protocols for grounding verification, source attribution, and split hygiene.
-- **AuditKIT:** Principled safety evaluation criteria, distinguishing harmful failure modes (hallucination under false confidence) from benign failures (abstention).
-- **SafeTune:** Identifying safety drift and providing target directions for representation steering (e.g., refusal direction steering and abstention calibration).
+### 3. Gating Before Generation (Gate 1)
+Representation probes extracted from internal model activations (Layer 18) contain separable epistemic signals regarding query familiarity. By acting as an early refusal gate before response autoregression begins, SafeTune effectively suppresses ungrounded generations without degrading known factual recall.
 
 ---
 
-## 5. Methodology, Provenance, and Reproducibility
+## 5. Tool Chain Implementation (Lexsi Toolkits)
+
+This work connects three official Lexsi tools in an end-to-end alignment pipeline:
+- **CuratorKIT:** Prepared balanced, group-isolated splits (120 train / 40 calibration / 40 development) preventing question-group leakage across splits.
+- **SafeTune:** Hosted the calibrated Layer-18 probe router in FP32, mapping hidden states to an abstention decision (`I don't know.` vs. pass-through).
+- **AuditKIT:** Provided standardized evaluation schemas, running 10 multi-arm comparisons across 400 records and 7,600 indicators to measure behavior accuracy and joint task success.
+
+---
+
+## 6. Methodology, Provenance, and Reproducibility
 
 - **Inference Setup:** Greedy one-pass decoding, native chat templates, FP16 precision.
 - **Judge Setup:** GLM-5.3-Flash via hosted API, zero reasoning randomness, strict final-label extraction. Exactly 6,835 evaluation calls completed with zero errors.
